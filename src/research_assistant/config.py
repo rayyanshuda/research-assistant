@@ -47,6 +47,11 @@ class Settings:
     # to disable the cap entirely (unlimited questions) for your own local use.
     demo_max_questions: int = int(os.getenv("DEMO_MAX_QUESTIONS", "5"))
 
+    # Per-session upload limits for the web app (webapp.py) — keeps a single
+    # visitor from uploading unbounded PDFs/pages and running up embedding cost.
+    max_upload_mb: int = int(os.getenv("MAX_UPLOAD_MB", "20"))
+    max_uploads_per_session: int = int(os.getenv("MAX_UPLOADS_PER_SESSION", "3"))
+
     def require_openai_key(self) -> str:
         if not self.openai_api_key:
             raise RuntimeError(

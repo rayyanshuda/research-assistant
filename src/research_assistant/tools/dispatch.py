@@ -1,19 +1,25 @@
-"""Maps a Claude tool_use block's name/input to the actual Python function call."""
+"""Maps a Claude tool_use block's name/input to the actual Python function call.
+
+store/registry are threaded through explicitly (not module globals) so each
+ResearchAgent - and therefore each web session - operates on its own private
+data, never another session's.
+"""
 from __future__ import annotations
 
+from ..doc_registry import DocRecord
+from ..vectorstore import VectorStore
 from .fetch_web import fetch_web
 from .search_notes import search_notes
 from .summarize_doc import summarize_doc
 
-_HANDLERS = {
-    "search_notes": lambda inp: search_notes(inp["query"], inp.get("top_k", 5)),
-    "fetch_web": lambda inp: fetch_web(inp["query"], inp.get("max_results", 5)),
-    "summarize_doc": lambda inp: summarize_doc(inp["doc_id"], inp.get("focus")),
-}
 
-
-def dispatch_tool(name: str, tool_input: dict):
-    handler = _HANDLERS.get(name)
+def dispatch_tool(name: str, tool_input: dict, *, store: VectorStore, registry: dict[str, DocRecord]):
+    handlers = {
+        "search_notes": lambda inp: search_notes(store, inp["query"], inp.get("top_k", 5)),
+        "fetch_web": lambda inp: fetch_web(inp["query"], inp.get("max_results", 5)),
+        "summarize_doc": lambda inp: summarize_doc(registry, inp["doc_id"], inp.get("focus")),
+    }
+    handler = handlers.get(name)
     if handler is None:
         return {"error": f"Unknown tool '{name}'"}
     try:

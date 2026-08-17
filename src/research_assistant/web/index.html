@@ -25,16 +25,21 @@
       * {
         box-sizing: border-box;
       }
+      html,
       body {
+        height: 100%;
         margin: 0;
+        overflow: hidden; /* only #chat scrolls - nothing scrolls past the input */
+      }
+      body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         background: var(--bg);
         color: var(--text);
-        height: 100vh;
         display: flex;
         flex-direction: column;
       }
       header {
+        flex: 0 0 auto;
         padding: 14px 20px;
         border-bottom: 1px solid var(--border);
         display: flex;
@@ -50,6 +55,89 @@
       #remaining {
         font-size: 12px;
         color: var(--muted);
+      }
+
+      #layout {
+        flex: 1;
+        display: flex;
+        min-height: 0; /* required so children can scroll instead of overflowing */
+      }
+
+      #sidebar {
+        width: 260px;
+        flex: 0 0 auto;
+        border-right: 1px solid var(--border);
+        background: var(--panel);
+        overflow-y: auto;
+        padding: 16px;
+      }
+      #sidebar h2 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      #uploadBtn {
+        width: 100%;
+        padding: 9px 12px;
+        border-radius: 8px;
+        border: 1px dashed var(--border);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 13px;
+        cursor: pointer;
+        margin-bottom: 14px;
+      }
+      #uploadBtn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      #uploadBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      #docList {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      #docList li.empty {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .doc-item {
+        padding: 8px 10px;
+        border-radius: 8px;
+        margin-bottom: 6px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+      }
+      .doc-name {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        word-break: break-word;
+      }
+      .doc-meta {
+        display: block;
+        font-size: 11.5px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .upload-error {
+        color: #b3261e;
+        font-size: 12px;
+        margin-bottom: 10px;
+        line-height: 1.4;
+      }
+
+      #main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
       }
       #chat {
         flex: 1;
@@ -112,7 +200,9 @@
       .bubble ol {
         padding-left: 20px;
       }
+
       footer {
+        flex: 0 0 auto;
         border-top: 1px solid var(--border);
         padding: 16px;
         background: var(--panel);
@@ -159,18 +249,31 @@
       <h1>Personal Research Assistant</h1>
       <span id="remaining"></span>
     </header>
-    <div id="chat"></div>
-    <footer>
-      <form id="form">
-        <textarea
-          id="input"
-          rows="1"
-          placeholder="Ask a question about the indexed notes/PDFs..."
-        ></textarea>
-        <button id="send" type="submit">Send</button>
-      </form>
-      <div class="limit-note" id="limitNote"></div>
-    </footer>
+    <div id="layout">
+      <aside id="sidebar">
+        <h2>Documents</h2>
+        <button id="uploadBtn" type="button">+ Upload PDF</button>
+        <input type="file" id="fileInput" accept="application/pdf" hidden />
+        <div id="uploadError" class="upload-error"></div>
+        <ul id="docList">
+          <li class="empty">No PDFs uploaded yet</li>
+        </ul>
+      </aside>
+      <div id="main">
+        <div id="chat"></div>
+        <footer>
+          <form id="form">
+            <textarea
+              id="input"
+              rows="1"
+              placeholder="Ask a question about your uploaded PDFs..."
+            ></textarea>
+            <button id="send" type="submit">Send</button>
+          </form>
+          <div class="limit-note" id="limitNote"></div>
+        </footer>
+      </div>
+    </div>
     <script>
       let sessionId = null;
 
@@ -180,6 +283,67 @@
       const sendEl = document.getElementById("send");
       const remainingEl = document.getElementById("remaining");
       const limitNoteEl = document.getElementById("limitNote");
+      const sidebarUploadBtn = document.getElementById("uploadBtn");
+      const fileInput = document.getElementById("fileInput");
+      const docListEl = document.getElementById("docList");
+      const uploadErrorEl = document.getElementById("uploadError");
+
+      function escapeHtml(s) {
+        const div = document.createElement("div");
+        div.textContent = s;
+        return div.innerHTML;
+      }
+
+      function renderDocList(docs) {
+        docListEl.innerHTML = "";
+        if (!docs || docs.length === 0) {
+          docListEl.innerHTML = '<li class="empty">No PDFs uploaded yet</li>';
+          return;
+        }
+        for (const doc of docs) {
+          const li = document.createElement("li");
+          li.className = "doc-item";
+          const pages = doc.pages
+            ? `${doc.pages} page${doc.pages === 1 ? "" : "s"}`
+            : "";
+          li.innerHTML = `<span class="doc-name">${escapeHtml(doc.source)}</span><span class="doc-meta">${pages}</span>`;
+          docListEl.appendChild(li);
+        }
+      }
+
+      async function uploadFile(file) {
+        uploadErrorEl.textContent = "";
+        sidebarUploadBtn.disabled = true;
+        sidebarUploadBtn.textContent = "Uploading...";
+
+        const formData = new FormData();
+        formData.append("file", file);
+        if (sessionId) formData.append("session_id", sessionId);
+
+        try {
+          const resp = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await resp.json();
+          if (!resp.ok)
+            throw new Error(data.detail || `upload failed (${resp.status})`);
+          sessionId = data.session_id;
+          renderDocList(data.docs);
+        } catch (err) {
+          uploadErrorEl.textContent = err.message;
+        } finally {
+          sidebarUploadBtn.disabled = false;
+          sidebarUploadBtn.textContent = "+ Upload PDF";
+        }
+      }
+
+      sidebarUploadBtn.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
+        if (file) uploadFile(file);
+        fileInput.value = "";
+      });
 
       function renderMathIn(el) {
         renderMathInElement(el, {
@@ -238,8 +402,7 @@
             if (data.questions_remaining <= 0) {
               inputEl.disabled = true;
               sendEl.disabled = true;
-              limitNoteEl.textContent =
-                "Demo limit reached for this session. Refresh the page to start a new one.";
+              new: limitNoteEl.textContent = 'Demo limit reached for this visitor (tracked server-side - refreshing will not reset it).';
               return;
             }
           }
@@ -269,7 +432,7 @@
 
       addMessage(
         "assistant",
-        "Hi! Ask me anything about the notes/PDFs I've been given — I'll cite my sources. This demo session is capped at a few questions, so make them count.",
+        "Hi! Upload a PDF using the panel on the left, then ask me anything about it - I'll cite my sources by page number. This demo session is capped at a few questions, so make them count.",
       );
     </script>
   </body>

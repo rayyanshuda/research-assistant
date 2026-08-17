@@ -5,6 +5,15 @@ results back, until the model returns a plain text answer (stop_reason ==
 "end_turn"). Conversation history is kept in-memory per ResearchAgent
 instance so multi-turn CLI sessions have context.
 
+Document scope: a ResearchAgent owns exactly one VectorStore and one doc
+registry, and every tool call it makes is scoped to those. By default
+(store=None) it uses the one shared persistent store on disk - that's what
+the CLI wants (query your own already-ingested notes). The web app
+(webapp.py) instead constructs each session's agent with a fresh
+VectorStore(ephemeral=True) and an empty registry, so one visitor's
+uploaded PDFs are never visible to another visitor's session - there is no
+shared state between them at all, not even on disk.
+
 Prompt caching: the system prompt and tool definitions never change, and
 the conversation history only grows, so we mark cache breakpoints on all
 three. That turns repeated tokens (system + tools + everything asked so
@@ -17,40 +26,44 @@ cache breakpoints per request; we use 3: system, tools, messages).
 Session question cap: this is meant to be usable as a public demo, so each
 ResearchAgent enforces a max number of questions per session
 (DEMO_MAX_QUESTIONS in .env, default 5) before it stops calling the API at
-all — keeps a single visitor from running up unbounded cost.
+all - keeps a single visitor from running up unbounded cost.
 """
 from __future__ import annotations
 
 import anthropic
 
 from ..config import settings
+from ..doc_registry import DocRecord, load_registry
+from ..ingestion import chunk_pdf_pages, parse_pdf_bytes
 from ..tools import TOOL_DEFINITIONS, dispatch_tool
+from ..vectorstore import VectorStore
 
-SYSTEM_PROMPT = """You are a personal research assistant with access to the user's own \
-notes and PDFs, plus the ability to search the web.
+SYSTEM_PROMPT = """You are a research assistant that answers questions about documents \
+uploaded to this session, plus the ability to search the web.
 
 Rules:
 1. ALWAYS call search_notes first for any question that could be answered from the \
-user's material. Prefer their notes over general knowledge.
-2. Only call fetch_web if search_notes doesn't turn up enough, or the question is \
-explicitly about something outside the user's notes (e.g. current events).
-3. Use summarize_doc when the user wants an overview of an entire document rather \
+uploaded documents. Prefer them over general knowledge.
+2. If search_notes reports that no documents have been uploaded yet, tell the user to \
+upload a PDF using the panel on the left rather than guessing at an answer.
+3. Only call fetch_web if search_notes doesn't turn up enough, or the question is \
+explicitly about something outside the uploaded documents (e.g. current events).
+4. Use summarize_doc when the user wants an overview of an entire document rather \
 than an answer to a narrow question.
-4. EVERY factual claim drawn from search_notes or fetch_web must be followed by an \
+5. EVERY factual claim drawn from search_notes or fetch_web must be followed by an \
 inline citation in square brackets, e.g. [LoRA.pdf, p.3] or [DuckDuckGo: example.com]. \
 Never state something from a source without citing it.
-5. If the notes and the web disagree, say so explicitly rather than picking one silently.
-6. If you don't have enough information after searching, say so plainly instead of \
+6. If a document and the web disagree, say so explicitly rather than picking one silently.
+7. If you don't have enough information after searching, say so plainly instead of \
 guessing.
-7. Format any mathematical notation as LaTeX: $...$ for inline math, $$...$$ for \
-block/display equations. The web UI renders these properly — don't approximate math \
+8. Format any mathematical notation as LaTeX: $...$ for inline math, $$...$$ for \
+block/display equations. The web UI renders these properly - don't approximate math \
 with plain unicode symbols when LaTeX is available.
-"""
 """
 
 _CACHED_SYSTEM = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
 
-# Mark the last tool definition as a cache breakpoint — this caches the whole
+# Mark the last tool definition as a cache breakpoint - this caches the whole
 # tools array (breakpoints cache everything up to and including themselves).
 _CACHED_TOOLS = [dict(t) for t in TOOL_DEFINITIONS]
 _CACHED_TOOLS[-1] = {**_CACHED_TOOLS[-1], "cache_control": {"type": "ephemeral"}}
@@ -63,7 +76,7 @@ def _apply_cache_breakpoint(history: list[dict]) -> None:
     never exceed the 4-breakpoint-per-request limit as a session grows),
     then marks the last content block of the last message. Only touches
     "user" messages, since those are the plain dicts we construct ourselves
-    (initial questions, tool_results) — assistant messages are SDK response
+    (initial questions, tool_results) - assistant messages are SDK response
     objects we pass straight through and never need to mark.
     """
     for msg in history:
@@ -94,6 +107,8 @@ class ResearchAgent:
         max_tool_iterations: int = 8,
         verbose: bool = True,
         max_questions: int | None = None,
+        store: VectorStore | None = None,
+        doc_registry: dict[str, DocRecord] | None = None,
     ):
         self._client = anthropic.Anthropic(api_key=settings.require_anthropic_key())
         self._model = model or settings.anthropic_model
@@ -102,6 +117,15 @@ class ResearchAgent:
         self._history: list[dict] = []
         self._max_questions = settings.demo_max_questions if max_questions is None else max_questions
         self._questions_asked = 0
+
+        # Default (store=None): the one shared persistent store on disk, same
+        # as ingest.py populates - this is what the CLI wants. Passing an
+        # explicit store (e.g. VectorStore(ephemeral=True)) is how the web
+        # app gives each session its own private, isolated document set.
+        self.store = store if store is not None else VectorStore()
+        self.doc_registry: dict[str, DocRecord] = (
+            doc_registry if doc_registry is not None else dict(load_registry())
+        )
 
     def reset(self):
         self._history = []
@@ -112,6 +136,30 @@ class ResearchAgent:
         if self._max_questions <= 0:
             return None
         return max(self._max_questions - self._questions_asked, 0)
+
+    def list_documents(self) -> list[dict]:
+        """For the web app's sidebar: what's currently in this session's store."""
+        return [
+            {"doc_id": r.doc_id, "source": r.source, "pages": r.pages}
+            for r in self.doc_registry.values()
+        ]
+
+    def add_document(self, pdf_bytes: bytes, filename: str) -> dict:
+        """Parse, chunk, embed, and index an uploaded PDF into this agent's
+        own store/registry only. Raises ValueError on an unparseable/empty PDF."""
+        pages = parse_pdf_bytes(pdf_bytes)
+        if not pages:
+            raise ValueError(f"Couldn't extract any text from '{filename}' (empty or scanned/image-only PDF?)")
+
+        chunks = chunk_pdf_pages(filename, pages, settings.chunk_size_tokens, settings.chunk_overlap_tokens)
+        self.store.add_chunks(chunks)
+
+        doc_id = chunks[0].doc_id
+        full_text = "\n\n".join(p.text for p in pages)
+        self.doc_registry[doc_id] = DocRecord(
+            doc_id=doc_id, source=filename, kind="pdf", full_text=full_text, pages=len(pages)
+        )
+        return {"doc_id": doc_id, "source": filename, "pages": len(pages), "chunks": len(chunks)}
 
     def ask(self, user_message: str) -> str:
         if self._max_questions > 0 and self._questions_asked >= self._max_questions:
@@ -144,7 +192,7 @@ class ResearchAgent:
                     continue
                 if self._verbose:
                     print(f"  [tool] {block.name}({block.input})")
-                result = dispatch_tool(block.name, block.input)
+                result = dispatch_tool(block.name, block.input, store=self.store, registry=self.doc_registry)
                 tool_results.append(
                     {
                         "type": "tool_result",

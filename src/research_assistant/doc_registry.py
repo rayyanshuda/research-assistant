@@ -19,7 +19,7 @@ class DocRecord:
     source: str
     kind: str  # "pdf" | "markdown"
     full_text: str
-
+    pages: int = 0  # display-only, for sidebars/listings; 0 for pre-existing records
 
 def load_registry() -> dict[str, DocRecord]:
     path = settings.doc_registry_path
