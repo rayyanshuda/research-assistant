@@ -2,6 +2,9 @@
 __pycache__/
 *.pyc
 .venv/
+venv/
 data/chroma/
+data/_test_chroma/
 data/doc_registry.json
+.pytest_cache/
 *.egg-info/

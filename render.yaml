@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: research-assistant
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scripts/serve.py --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: EMBEDDING_PROVIDER
+        value: gemini
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5
+      - key: DEMO_MAX_QUESTIONS
+        value: "5"
+      - key: MAX_UPLOAD_MB
+        value: "20"
+      - key: MAX_UPLOADS_PER_SESSION
+        value: "3"
