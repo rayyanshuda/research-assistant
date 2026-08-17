@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+data/chroma/
+data/doc_registry.json
+*.egg-info/

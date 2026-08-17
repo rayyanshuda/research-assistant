@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Personal Research Assistant</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <style>
+      :root {
+        --bg: #faf9f7;
+        --panel: #ffffff;
+        --border: #e5e2dd;
+        --text: #1f1e1d;
+        --muted: #78746d;
+        --accent: #b5651d;
+        --bubble-user: #efece6;
+        --bubble-assistant: #ffffff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--panel);
+      }
+      header h1 {
+        font-size: 15px;
+        margin: 0;
+        font-weight: 600;
+      }
+      #remaining {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      #chat {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+        max-width: 760px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      .msg {
+        margin-bottom: 20px;
+        display: flex;
+      }
+      .msg.user {
+        justify-content: flex-end;
+      }
+      .bubble {
+        max-width: 80%;
+        padding: 12px 16px;
+        border-radius: 12px;
+        line-height: 1.55;
+        font-size: 14.5px;
+      }
+      .msg.user .bubble {
+        background: var(--bubble-user);
+        border: 1px solid var(--border);
+      }
+      .msg.assistant .bubble {
+        background: var(--bubble-assistant);
+        border: 1px solid var(--border);
+      }
+      .bubble p:first-child {
+        margin-top: 0;
+      }
+      .bubble p:last-child {
+        margin-bottom: 0;
+      }
+      .bubble code {
+        background: #f1efe9;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 13px;
+      }
+      .bubble pre {
+        background: #1f1e1d;
+        color: #f5f3ee;
+        padding: 12px;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+      .bubble pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+      }
+      .bubble a {
+        color: var(--accent);
+      }
+      .bubble ul,
+      .bubble ol {
+        padding-left: 20px;
+      }
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 16px;
+        background: var(--panel);
+      }
+      #form {
+        max-width: 760px;
+        margin: 0 auto;
+        display: flex;
+        gap: 8px;
+      }
+      #input {
+        flex: 1;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        font-size: 14.5px;
+        resize: none;
+        font-family: inherit;
+      }
+      #send {
+        padding: 0 20px;
+        border-radius: 10px;
+        border: none;
+        background: var(--accent);
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #send:disabled,
+      #input:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .limit-note {
+        text-align: center;
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Personal Research Assistant</h1>
+      <span id="remaining"></span>
+    </header>
+    <div id="chat"></div>
+    <footer>
+      <form id="form">
+        <textarea
+          id="input"
+          rows="1"
+          placeholder="Ask a question about the indexed notes/PDFs..."
+        ></textarea>
+        <button id="send" type="submit">Send</button>
+      </form>
+      <div class="limit-note" id="limitNote"></div>
+    </footer>
+    <script>
+      let sessionId = null;
+
+      const chatEl = document.getElementById("chat");
+      const formEl = document.getElementById("form");
+      const inputEl = document.getElementById("input");
+      const sendEl = document.getElementById("send");
+      const remainingEl = document.getElementById("remaining");
+      const limitNoteEl = document.getElementById("limitNote");
+
+      function renderMathIn(el) {
+        renderMathInElement(el, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false },
+          ],
+          throwOnError: false,
+        });
+      }
+
+      function addMessage(role, text) {
+        const wrap = document.createElement("div");
+        wrap.className = "msg " + role;
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.innerHTML = marked.parse(text);
+        wrap.appendChild(bubble);
+        chatEl.appendChild(wrap);
+        chatEl.scrollTop = chatEl.scrollHeight;
+        renderMathIn(bubble);
+        return bubble;
+      }
+
+      async function sendMessage(message) {
+        addMessage("user", message);
+        inputEl.value = "";
+        inputEl.disabled = true;
+        sendEl.disabled = true;
+
+        const thinking = addMessage("assistant", "_thinking..._");
+
+        try {
+          const resp = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message, session_id: sessionId }),
+          });
+          if (!resp.ok) throw new Error("server error " + resp.status);
+          const data = await resp.json();
+          sessionId = data.session_id;
+          thinking.innerHTML = marked.parse(data.answer);
+          renderMathIn(thinking);
+
+          if (
+            data.questions_remaining === null ||
+            data.questions_remaining === undefined
+          ) {
+            remainingEl.textContent = "";
+          } else {
+            remainingEl.textContent =
+              data.questions_remaining +
+              " question" +
+              (data.questions_remaining === 1 ? "" : "s") +
+              " left";
+            if (data.questions_remaining <= 0) {
+              inputEl.disabled = true;
+              sendEl.disabled = true;
+              limitNoteEl.textContent =
+                "Demo limit reached for this session. Refresh the page to start a new one.";
+              return;
+            }
+          }
+        } catch (err) {
+          thinking.innerHTML =
+            "<em>Something went wrong reaching the assistant. Check that the server is running.</em>";
+        }
+
+        inputEl.disabled = false;
+        sendEl.disabled = false;
+        inputEl.focus();
+      }
+
+      formEl.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const message = inputEl.value.trim();
+        if (!message) return;
+        sendMessage(message);
+      });
+
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          formEl.requestSubmit();
+        }
+      });
+
+      addMessage(
+        "assistant",
+        "Hi! Ask me anything about the notes/PDFs I've been given — I'll cite my sources. This demo session is capped at a few questions, so make them count.",
+      );
+    </script>
+  </body>
+</html>
