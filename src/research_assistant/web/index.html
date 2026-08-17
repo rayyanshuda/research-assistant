@@ -402,7 +402,8 @@
             if (data.questions_remaining <= 0) {
               inputEl.disabled = true;
               sendEl.disabled = true;
-              new: limitNoteEl.textContent = 'Demo limit reached for this visitor (tracked server-side - refreshing will not reset it).';
+              limitNoteEl.textContent =
+                "Demo limit reached for this visitor (tracked server-side - refreshing will not reset it).";
               return;
             }
           }
