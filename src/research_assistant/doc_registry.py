@@ -1,11 +1,6 @@
-"""In-memory registry mapping doc_id -> full document text + metadata.
-
-Chroma stores chunks, not whole documents, so summarize_doc(doc_id)
-needs somewhere to fetch the complete original text. Each ResearchAgent
-(one per web session) owns its own registry dict - there's no shared
-on-disk registry anymore now that the CLI and local ingestion pipeline
-have been retired.
-"""
+# in-memory registry mapping doc_id -> full document text + metadata
+# chroma stores chunks, not whole documents, so summarize_docs(doc_id)
+# needs somewhere to fetch the complete original text.
 from __future__ import annotations
 
 from dataclasses import dataclass
