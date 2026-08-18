@@ -14,19 +14,15 @@ class PdfPage:
 
 
 def parse_pdf(path: str | Path) -> list[PdfPage]:
-    """Extract text from every page of a PDF file on disk.
-
-    Returns one PdfPage per page, in order, with 1-indexed page numbers so
-    citations can say "page 7" the way a human would.
-    """
+    # extract text from every page of a PDF file
+    # return one PdfPage per page for indexing page numbers citations
     path = Path(path)
     with fitz.open(path) as doc:
         return _extract_pages(doc)
 
 
 def parse_pdf_bytes(data: bytes) -> list[PdfPage]:
-    """Same as parse_pdf, but for a PDF already in memory (e.g. an upload
-    that never touched disk) instead of a file path."""
+    # same as parse_pdf but for a PDF in memory
     with fitz.open(stream=data, filetype="pdf") as doc:
         return _extract_pages(doc)
 
