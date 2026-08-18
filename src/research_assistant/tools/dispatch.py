@@ -1,9 +1,4 @@
-"""Maps a Claude tool_use block's name/input to the actual Python function call.
-
-store/registry are threaded through explicitly (not module globals) so each
-ResearchAgent - and therefore each web session - operates on its own private
-data, never another session's.
-"""
+# Maps a claude tool_use block's name/input to the Python function call.
 from __future__ import annotations
 
 from ..doc_registry import DocRecord
