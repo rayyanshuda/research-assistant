@@ -1,9 +1,4 @@
-"""Offline tests for the FastAPI web app - session isolation, cap enforcement,
-upload handling, and routing. ResearchAgent is monkeypatched to a fake (no
-API key/network needed), so this only proves the web layer's plumbing, not
-answer quality or real embedding/retrieval (see test_document_isolation.py
-for that, using the real ResearchAgent).
-"""
+# local tests for FASTAPI app: session isolation, cap enforcement, upload handling, and routing
 import io
 import sys
 from pathlib import Path
@@ -14,9 +9,9 @@ import research_assistant.webapp as webapp  # noqa: E402
 
 
 class FakeAgent:
-    """Stands in for ResearchAgent: answers deterministically, enforces the
+    """Stands in for ResearchAgent: answers deterministically, uses the
     same style of question cap and doc registry, without touching
-    Anthropic/Gemini/Chroma at all."""
+    Anthropic/Gemini/Chroma."""
 
     _instances_created = 0
 
@@ -57,7 +52,7 @@ def _make_client():
 
 
 def _fake_pdf_upload(name="test.pdf"):
-    # Content doesn't need to be a real PDF - FakeAgent.add_document never parses it.
+    # Content doesn't need to be a real PDF since FakeAgent.add_document never parses it.
     return {"file": (name, io.BytesIO(b"%PDF-1.4 fake content"), "application/pdf")}
 
 
@@ -68,7 +63,6 @@ def test_new_session_created_when_none_provided():
     body = resp.json()
     assert body["session_id"]
     assert "agent#1" in body["answer"]
-    print("OK  a fresh session_id is minted when none is supplied")
 
 
 def test_same_session_id_reuses_the_same_agent():

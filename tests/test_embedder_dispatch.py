@@ -1,10 +1,5 @@
-"""Offline tests for the pluggable embedding backend dispatch/batching/retry logic.
-
-These mock the actual network calls (OpenAI/Gemini/local ONNX model) so they
-run without any API key, account, or network access — they verify the
-plumbing (provider selection, batching, retry-on-429), not the quality of
-any specific provider's vectors.
-"""
+# tests for pluggable embedding backend dispatch/batching/retry logic
+# mock the real network calls (OpenAI/Gemini/loacl ONNX model) and verify provider selection, batching, and retry-on-429
 import sys
 import types
 from pathlib import Path

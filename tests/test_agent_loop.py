@@ -1,10 +1,5 @@
-"""Offline tests for prompt caching and the per-session question cap.
+# prompt caching and per-session question cap
 
-Mocks anthropic.Anthropic entirely — no API key, no network call, no cost.
-Verifies the request payload actually carries cache_control breakpoints
-(not just that the code runs) and that the question cap stops calling the
-API once exhausted.
-"""
 import sys
 from pathlib import Path
 from types import SimpleNamespace

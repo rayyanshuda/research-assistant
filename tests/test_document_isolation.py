@@ -1,9 +1,4 @@
-"""Proves the core guarantee: one session's uploaded PDF is never visible to
-another session. Uses the REAL ResearchAgent, VectorStore(ephemeral=True),
-and the real chunking/registry code - only the embedder and the Anthropic
-client are mocked (no network, no API key, no cost), so this exercises the
-actual isolation boundary, not a stand-in for it.
-"""
+# proves that one session's uploaded PDF is never visible to another session. tests isolation boundary
 import sys
 from pathlib import Path
 from unittest.mock import patch

@@ -1,4 +1,4 @@
-"""Ingestion/chunking tests. These don't need API keys — pure parsing + chunking logic."""
+# ingestion and chunking tests: parsing + chunking logic
 import sys
 from pathlib import Path
 

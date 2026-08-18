@@ -1,8 +1,5 @@
-"""End-to-end pipeline check with a fake embedder — no live API key needed.
-
-Proves ingestion -> chunking -> vectorstore -> citation-aware retrieval
-actually works as a pipeline, not just that each module imports.
-"""
+# pipeline check with a fake embedder: no live API key needed
+# proves ingestion -> chunking -> vectorstore -> citation retrieval
 import shutil
 import sys
 from pathlib import Path
