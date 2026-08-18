@@ -1,10 +1,4 @@
-"""Markdown -> section extraction.
-
-Splits a markdown file on ATX headers (#, ##, ###, ...) so each section
-carries a human-readable heading for citations, e.g. "## Retrieval Notes".
-Content before the first header is kept under a synthetic "(untitled)"
-heading rather than dropped.
-"""
+# markdown to section extraction
 from __future__ import annotations
 
 import re
