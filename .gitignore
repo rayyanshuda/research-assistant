@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 venv/
 data/chroma/
+data/mcp_chroma/
 data/_test_chroma/
 data/doc_registry.json
 .pytest_cache/
