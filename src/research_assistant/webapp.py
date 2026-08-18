@@ -1,24 +1,3 @@
-"""Local web app: FastAPI backend + static chat frontend for the research assistant.
-
-Wraps ResearchAgent with per-visitor session isolation - one agent instance
-per browser session, tracked by a session_id the frontend generates and
-resends. Each session gets its OWN VectorStore(ephemeral=True) (in-memory,
-never touches disk, never shared) and its own empty doc registry, so
-uploaded PDFs, conversation history, and the 5-question demo cap are all
-private per visitor. There is no shared document corpus in this mode -
-visitors must upload their own PDF(s) before they can ask anything about
-one; nothing here reads from data/pdfs or the CLI's persistent store.
-
-Run with:
-    python scripts/serve.py
-then open http://localhost:8000
-
-This is intentionally simple for a low-traffic personal demo: sessions live
-in an in-memory dict (lost on restart, not shared across multiple server
-processes) and are swept on a plain TTL, no database. Fine for "show this
-in an interview"; would need real session storage (Redis, etc.) if this
-ever needed to survive restarts or run behind multiple worker processes.
-"""
 from __future__ import annotations
 
 import time
@@ -40,7 +19,7 @@ _STATIC_DIR = Path(__file__).resolve().parent / "web"
 _SESSIONS: dict[str, tuple[ResearchAgent, float]] = {}
 _SESSION_TTL_SECONDS = 2 * 60 * 60  # sweep sessions/IP usage idle longer than this
 
-# ip -> list of timestamps of questions actually asked from that IP, within
+# ip -> list of timestamps of questions asked from that IP, within
 # the last _SESSION_TTL_SECONDS. Separate from _SESSIONS on purpose: this
 # survives a visitor discarding their session_id, since it's keyed by IP
 # instead.
@@ -121,9 +100,7 @@ def chat(req: ChatRequest, request: Request) -> ChatResponse:
         return ChatResponse(
             answer=(
                 f"This demo is capped at {settings.demo_max_questions} questions per visitor. "
-                "That's tracked server-side by IP address, not just this browser tab - "
-                "refreshing the page or starting a new session won't reset it. Run your own "
-                "copy locally (see the README) to remove the cap."
+                "Run your own copy locally (see the README) to remove the cap."
             ),
             session_id=req.session_id or str(uuid.uuid4()),
             questions_remaining=0,
@@ -160,7 +137,7 @@ async def upload(session_id: str | None = Form(default=None), file: UploadFile =
     data = await file.read()
     max_bytes = settings.max_upload_mb * 1024 * 1024
     if len(data) > max_bytes:
-        raise HTTPException(status_code=400, detail=f"File too large - max {settings.max_upload_mb}MB.")
+        raise HTTPException(status_code=400, detail=f"File too large: max {settings.max_upload_mb}MB.")
 
     try:
         doc = agent.add_document(data, file.filename)
