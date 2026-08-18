@@ -1,39 +1,5 @@
-#!/usr/bin/env python3
-"""MCP server: exposes this project's tools directly to Claude Desktop (or
-any other MCP client), backed by one persistent local document store.
+# mcp server: connecting this project's tools to claude desktop (or any other MCP client)
 
-Unlike the web app, there's no per-visitor isolation here - this is a
-single local knowledge base that's yours alone, meant to be indexed once
-per document and then queried repeatedly across Claude Desktop sessions.
-
-Setup (Claude Desktop's claude_desktop_config.json):
-    {
-      "mcpServers": {
-        "research-assistant": {
-          "command": "/absolute/path/to/.venv/bin/python",
-          "args": ["/absolute/path/to/research-assistant/scripts/mcp_server.py"]
-        }
-      }
-    }
-Restart Claude Desktop after editing that file. This process picks up
-ANTHROPIC_API_KEY/GEMINI_API_KEY etc. from .env in the project root the
-same way the old ingest.py/serve.py did - no need to duplicate them into
-the Desktop config.
-
-Known limitation: the doc registry (used by summarize_doc for full-text
-lookup) is a fresh, empty dict every time this process starts - it does
-NOT persist across Claude Desktop restarts, unlike the vector store itself
-(which is on disk and does persist). Practically: after restarting Claude
-Desktop, search_notes works immediately against everything ever indexed,
-but summarize_doc needs index_document run again first in that session.
-Fixing that fully would mean re-adding on-disk registry persistence -
-reasonable as a follow-up if this becomes annoying, not built here to
-keep this addition minimal.
-
-Test locally before wiring into Claude Desktop:
-    pip install "mcp[cli]"
-    mcp dev scripts/mcp_server.py
-"""
 from __future__ import annotations
 
 import sys
