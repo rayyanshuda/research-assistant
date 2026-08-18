@@ -1,17 +1,6 @@
-"""Word-window chunking with citation metadata.
+# chunking with citation metadata
+# each chunk carries metadata of where it came from (source file name, doc_id, page number, section heading for markdown) + chunk index
 
-Each Chunk carries enough metadata to answer "where did this come from"
-precisely: source file name, doc_id, and either a page number (PDF) or
-section heading (markdown), plus a chunk index within that unit.
-
-Chunking is done by word count rather than exact token count (via
-tiktoken) on purpose: tiktoken's BPE file downloads from
-openaipublic.blob.core.windows.net on first use, which fails in sandboxed
-or restricted-network environments. Words-to-tokens for English text is
-roughly 1 word ≈ 1.3 tokens, so `chunk_size` and `overlap` below are in
-tokens and get converted to a word count internally — no network dependency,
-no first-run download.
-"""
 from __future__ import annotations
 
 import hashlib
@@ -56,7 +45,7 @@ def _make_doc_id(source: str) -> str:
 
 
 def _split_tokens(text: str, chunk_size: int, overlap: int) -> list[str]:
-    """Split text into overlapping windows, sized in approximate tokens."""
+    # split text into oveerlapping windows, sized in tokens
     words = text.split()
     if not words:
         return []
