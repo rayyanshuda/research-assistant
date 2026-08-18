@@ -1,4 +1,4 @@
-"""Central configuration, loaded from environment variables (.env)."""
+# config laoded from env variables
 from __future__ import annotations
 
 import os
@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env from the project root regardless of CWD.
+# load .env from the project root
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(_PROJECT_ROOT / ".env")
 
@@ -18,11 +18,8 @@ class Settings:
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY")
     gemini_api_key: str | None = os.getenv("GEMINI_API_KEY")
 
-    anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+    anthropic_model: str = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5")
 
-    # "gemini" (default — free tier, no key-local-compute tradeoff, works when hosted),
-    # "local" (free, no key, but runs on-device — fine for solo/CLI, not for a hosted
-    # multi-user instance), or "openai".
     embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "gemini")
     openai_embedding_model: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
     gemini_embedding_model: str = os.getenv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-001")
@@ -42,12 +39,12 @@ class Settings:
     chunk_size_tokens: int = 400
     chunk_overlap_tokens: int = 60
 
-    # Caps questions per ResearchAgent session (agent/agent_loop.py) — keeps a
+    # Caps questions per ResearchAgent session (agent/agent_loop.py), stops a
     # single demo visitor from running up unbounded Claude API cost. Set to 0
-    # to disable the cap entirely (unlimited questions) for your own local use.
+    # to disable the cap entirely (unlimited questions) for local use.
     demo_max_questions: int = int(os.getenv("DEMO_MAX_QUESTIONS", "5"))
 
-    # Per-session upload limits for the web app (webapp.py) — keeps a single
+    # Per-session upload limits for the web app (webapp.py), stops a single
     # visitor from uploading unbounded PDFs/pages and running up embedding cost.
     max_upload_mb: int = int(os.getenv("MAX_UPLOAD_MB", "20"))
     max_uploads_per_session: int = int(os.getenv("MAX_UPLOADS_PER_SESSION", "3"))
@@ -69,8 +66,7 @@ class Settings:
     def require_gemini_key(self) -> str:
         if not self.gemini_api_key:
             raise RuntimeError(
-                "GEMINI_API_KEY is not set. Get a free key at https://aistudio.google.com/apikey "
-                "and add it to .env, or set EMBEDDING_PROVIDER=local to skip API keys entirely."
+                "GEMINI_API_KEY is not set. Get a free key at https://aistudio.google.com/apikey and add it to .env"
             )
         return self.gemini_api_key
 
