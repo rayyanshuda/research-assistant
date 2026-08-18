@@ -1,33 +1,5 @@
-"""Claude tool-use agent loop.
-
-Keeps calling the model, executing whatever tools it asks for, and feeding
-results back, until the model returns a plain text answer (stop_reason ==
-"end_turn"). Conversation history is kept in-memory per ResearchAgent
-instance so multi-turn sessions have context.
-
-Document scope: a ResearchAgent owns exactly one VectorStore and one doc
-registry, and every tool call it makes is scoped to those. The web app
-(webapp.py) is the only caller, and it always constructs each session's
-agent with an explicit fresh VectorStore(ephemeral=True) and an empty
-registry, so one visitor's uploaded PDFs are never visible to another
-visitor's session - there is no shared state between them at all, not even
-on disk. (The constructor defaults let ResearchAgent() also work standalone
-without arguments, but nothing in this repo relies on that anymore.)
-
-Prompt caching: the system prompt and tool definitions never change, and
-the conversation history only grows, so we mark cache breakpoints on all
-three. That turns repeated tokens (system + tools + everything asked so
-far) into 0.1x-priced cache reads on every call after the first, instead of
-paying full input price for the same content over and over within a
-session. See _apply_cache_breakpoint() for how the message-history
-breakpoint is kept to a single, moving marker (Anthropic allows at most 4
-cache breakpoints per request; we use 3: system, tools, messages).
-
-Session question cap: this is meant to be usable as a public demo, so each
-ResearchAgent enforces a max number of questions per session
-(DEMO_MAX_QUESTIONS in .env, default 5) before it stops calling the API at
-all - keeps a single visitor from running up unbounded cost.
-"""
+# claude tool-use agent loop
+# keeps calling the model, executing whatever tools it asks for, and feeding the results back, until the model returns a plain text number (stop_reason == end_turn)
 from __future__ import annotations
 
 import anthropic
@@ -63,22 +35,15 @@ with plain unicode symbols when LaTeX is available.
 
 _CACHED_SYSTEM = [{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}]
 
-# Mark the last tool definition as a cache breakpoint - this caches the whole
-# tools array (breakpoints cache everything up to and including themselves).
+# mark the last tool definition as a cache breakpoint
+# this caches the whole tools array (breakpoints cache everything up to and including themselves).
 _CACHED_TOOLS = [dict(t) for t in TOOL_DEFINITIONS]
 _CACHED_TOOLS[-1] = {**_CACHED_TOOLS[-1], "cache_control": {"type": "ephemeral"}}
 
 
 def _apply_cache_breakpoint(history: list[dict]) -> None:
-    """Move the message-history cache breakpoint to the end of `history`.
-
-    Strips any cache_control we previously added to earlier messages (so we
-    never exceed the 4-breakpoint-per-request limit as a session grows),
-    then marks the last content block of the last message. Only touches
-    "user" messages, since those are the plain dicts we construct ourselves
-    (initial questions, tool_results) - assistant messages are SDK response
-    objects we pass straight through and never need to mark.
-    """
+    # move the message-history cache breakpoint to the end of `history`
+    # strip cache_control to not exceed the 4-breakpoint-per-request limit 
     for msg in history:
         if msg.get("role") != "user":
             continue
@@ -118,11 +83,6 @@ class ResearchAgent:
         self._max_questions = settings.demo_max_questions if max_questions is None else max_questions
         self._questions_asked = 0
 
-        # The web app (webapp.py) is the only caller, and it always passes an
-        # explicit VectorStore(ephemeral=True) plus an empty registry per
-        # session, so one visitor's uploaded PDFs are never visible to
-        # another's. The defaults below just let ResearchAgent() also work
-        # standalone (e.g. a REPL) without arguments.
         self.store = store if store is not None else VectorStore(ephemeral=True)
         self.doc_registry: dict[str, DocRecord] = doc_registry if doc_registry is not None else {}
 
@@ -131,21 +91,20 @@ class ResearchAgent:
         self._questions_asked = 0
 
     def questions_remaining(self) -> int | None:
-        """Returns None if the cap is disabled (max_questions <= 0)."""
+        # returns None if the cap is disabled (max_questions <= 0)
         if self._max_questions <= 0:
             return None
         return max(self._max_questions - self._questions_asked, 0)
 
     def list_documents(self) -> list[dict]:
-        """For the web app's sidebar: what's currently in this session's store."""
+        # list what is currently in the session's store
         return [
             {"doc_id": r.doc_id, "source": r.source, "pages": r.pages}
             for r in self.doc_registry.values()
         ]
 
     def add_document(self, pdf_bytes: bytes, filename: str) -> dict:
-        """Parse, chunk, embed, and index an uploaded PDF into this agent's
-        own store/registry only. Raises ValueError on an unparseable/empty PDF."""
+        # parse, chunk, embed, and index an uploaded PDF into the agent's store/registry
         pages = parse_pdf_bytes(pdf_bytes)
         if not pages:
             raise ValueError(f"Couldn't extract any text from '{filename}' (empty or scanned/image-only PDF?)")
@@ -202,8 +161,8 @@ class ResearchAgent:
             self._history.append({"role": "user", "content": tool_results})
 
         return (
-            "I hit the tool-call limit for this turn without reaching a final answer. "
-            "Try narrowing your question."
+            "The assistant has hit the tool-call limit for this turn without reaching a final answer. "
+            "Try specifying your question."
         )
 
 
