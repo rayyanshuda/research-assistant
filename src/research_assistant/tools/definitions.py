@@ -1,11 +1,11 @@
-"""Claude tool-use JSON schema definitions for the three agent tools."""
+# claude tool-use JSON schema definitions for the 3 agent tools
 
 TOOL_DEFINITIONS = [
     {
         "name": "search_notes",
         "description": (
             "Search the user's ingested personal notes and PDFs for relevant passages. "
-            "Always try this first before fetch_web — the user's own material is the "
+            "Always try this first before fetch_web, the user's own material is the "
             "primary source of truth. Returns passages with citations (source file + "
             "page/section) that MUST be used when answering."
         ),
