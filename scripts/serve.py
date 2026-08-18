@@ -1,18 +1,4 @@
-#!/usr/bin/env python3
-"""Run the local web version of the research assistant.
-
-    python scripts/serve.py [--port 8000] [--host 127.0.0.1]
-
-Then open the printed URL in a browser. Unlike the CLI, this does NOT need
-ingest.py to have been run first - each browser session starts with an
-empty, private, in-memory document store, and you upload PDF(s) via the
-sidebar's Upload button once the page is open. ingest.py only populates the
-CLI's separate shared/persistent store (data/chroma/), which this web app
-never reads from.
-
-No --reload here: if you edit any .py file, stop this (Ctrl+C) and re-run
-it to pick up the change - it won't hot-reload on its own.
-"""
+# for local testing
 from __future__ import annotations
 
 import argparse
