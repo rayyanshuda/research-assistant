@@ -1,4 +1,4 @@
-"""Local Chroma vector store wrapper with citation-aware retrieval."""
+# local chroma vector store wrapper with citation retrieval
 from __future__ import annotations
 
 import uuid
@@ -29,18 +29,8 @@ class VectorStore:
         collection_name: str | None = None,
         ephemeral: bool = False,
     ):
-        """ephemeral=True gives an in-memory Chroma collection, used for
-        per-visitor sessions in the web app so one person's uploaded PDFs are
-        never visible to another. persist_dir/collection_name are ignored in
-        that mode.
-
-        Important: chromadb.EphemeralClient() caches and shares its
-        underlying System across every call in the same process (this is
-        deliberate chromadb behavior, not a bug) - so two ephemeral
-        VectorStores with the SAME collection name would silently share
-        data. We give every ephemeral store a random, unique collection name
-        so isolation holds regardless of that shared-System caching.
-        """
+        # ephemeral set to True gives an in-memory Chroma collection,
+        # used for per-visitor sessions so one person's PDFs are not visible to another.
         if ephemeral:
             self._client = chromadb.EphemeralClient()
             self._collection = self._client.get_or_create_collection(
@@ -54,7 +44,7 @@ class VectorStore:
             )
 
     def add_chunks(self, chunks: list[Chunk]) -> None:
-        """Embed and upsert chunks. Safe to call repeatedly (upsert by chunk_id)."""
+        """Embed and upsert chunks. It's safe to call repeatedly (upsert by chunk_id)."""
         if not chunks:
             return
         texts = [c.text for c in chunks]
