@@ -3,16 +3,16 @@
 Keeps calling the model, executing whatever tools it asks for, and feeding
 results back, until the model returns a plain text answer (stop_reason ==
 "end_turn"). Conversation history is kept in-memory per ResearchAgent
-instance so multi-turn CLI sessions have context.
+instance so multi-turn sessions have context.
 
 Document scope: a ResearchAgent owns exactly one VectorStore and one doc
-registry, and every tool call it makes is scoped to those. By default
-(store=None) it uses the one shared persistent store on disk - that's what
-the CLI wants (query your own already-ingested notes). The web app
-(webapp.py) instead constructs each session's agent with a fresh
-VectorStore(ephemeral=True) and an empty registry, so one visitor's
-uploaded PDFs are never visible to another visitor's session - there is no
-shared state between them at all, not even on disk.
+registry, and every tool call it makes is scoped to those. The web app
+(webapp.py) is the only caller, and it always constructs each session's
+agent with an explicit fresh VectorStore(ephemeral=True) and an empty
+registry, so one visitor's uploaded PDFs are never visible to another
+visitor's session - there is no shared state between them at all, not even
+on disk. (The constructor defaults let ResearchAgent() also work standalone
+without arguments, but nothing in this repo relies on that anymore.)
 
 Prompt caching: the system prompt and tool definitions never change, and
 the conversation history only grows, so we mark cache breakpoints on all
@@ -33,7 +33,7 @@ from __future__ import annotations
 import anthropic
 
 from ..config import settings
-from ..doc_registry import DocRecord, load_registry
+from ..doc_registry import DocRecord
 from ..ingestion import chunk_pdf_pages, parse_pdf_bytes
 from ..tools import TOOL_DEFINITIONS, dispatch_tool
 from ..vectorstore import VectorStore
@@ -118,14 +118,13 @@ class ResearchAgent:
         self._max_questions = settings.demo_max_questions if max_questions is None else max_questions
         self._questions_asked = 0
 
-        # Default (store=None): the one shared persistent store on disk, same
-        # as ingest.py populates - this is what the CLI wants. Passing an
-        # explicit store (e.g. VectorStore(ephemeral=True)) is how the web
-        # app gives each session its own private, isolated document set.
-        self.store = store if store is not None else VectorStore()
-        self.doc_registry: dict[str, DocRecord] = (
-            doc_registry if doc_registry is not None else dict(load_registry())
-        )
+        # The web app (webapp.py) is the only caller, and it always passes an
+        # explicit VectorStore(ephemeral=True) plus an empty registry per
+        # session, so one visitor's uploaded PDFs are never visible to
+        # another's. The defaults below just let ResearchAgent() also work
+        # standalone (e.g. a REPL) without arguments.
+        self.store = store if store is not None else VectorStore(ephemeral=True)
+        self.doc_registry: dict[str, DocRecord] = doc_registry if doc_registry is not None else {}
 
     def reset(self):
         self._history = []

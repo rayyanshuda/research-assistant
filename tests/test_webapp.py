@@ -257,4 +257,4 @@ if __name__ == "__main__":
     test_ip_cap_applies_even_within_a_single_persisted_session()
     test_different_ips_get_independent_caps()
     test_ip_usage_not_double_counted_once_session_cap_already_hit()
-    print("\nAll webapp tests passed.")
+    print("\nAll tests passed.")

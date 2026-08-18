@@ -1,9 +1,8 @@
 """summarize_doc(doc_id) - summarize a full document via Claude.
 
-Takes the doc registry (doc_id -> DocRecord) explicitly rather than reading
-the shared data/doc_registry.json file, so each web session summarizes only
-its own uploaded documents. The CLI still passes the file-backed registry
-loaded from disk, unchanged.
+Takes the doc registry (doc_id -> DocRecord) explicitly, scoped to one web
+session's ResearchAgent, so each session summarizes only its own uploaded
+documents.
 """
 from __future__ import annotations
 
