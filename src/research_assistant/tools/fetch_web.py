@@ -1,10 +1,4 @@
-"""fetch_web(query) — optional web supplement, used only when local notes fall short.
-
-Uses duckduckgo-search (no API key required) so the project works out of the
-box. Swap this out for a paid search API (Brave, Tavily, Bing) or Claude's
-native server-side web_search tool if you want higher-quality results —
-the dispatch/agent-loop plumbing doesn't need to change either way.
-"""
+# uses duckduckgo-search to aid in providing the best response (No API)
 from __future__ import annotations
 
 
